@@ -3,12 +3,13 @@
 
     public class Item
     {
+        #region AgedBrie 
         interface IsAgedBrie
         {
-            bool isYes();
             void handleExpired();
-            bool notBrieAndNotBackstagePasses();
             void updateQuality();
+            void initializeBackstagePassesAndSoForUs();
+
         }
         public class AgedBrie : IsAgedBrie
         {
@@ -17,22 +18,20 @@
             {
                 itm = _itm;
             }
-            public bool isYes()
-            {
-                return true;
-            }
             public void handleExpired()
             {
                 itm.increaseQualityIfNotMax();
             }
-
-            public bool notBrieAndNotBackstagePasses()
-            {
-                return false;
-            }
             public void updateQuality()
             {
                 itm.increaseQualityIncludingBackstagePasses();
+            }
+            
+            public void initializeBackstagePassesAndSoForUs()
+            {
+                itm.isBackstagePasses = new NotBackstagePasses(itm) as IsBackstagePasses;
+
+                itm.isSulfuras = new NotSulfuras(itm) as IsSulfuras;
             }
         }
         public class NotAgedBrie : IsAgedBrie
@@ -42,46 +41,43 @@
             {
                 itm = _itm;
             }
-            public bool isYes()
-            {
-                return false;
-            }
             public void handleExpired()
             {
-                itm.handleExpiredItemNotAgedBrie();
-            }
-
-            public bool notBrieAndNotBackstagePasses()
-            {
-                return !(itm.isBackstagePasses.isYes());
+                itm.isBackstagePasses.handleExpired();
             }
             public void updateQuality()
             {
                 itm.isBackstagePasses.updateQuality();
             }
-        }     
-        
-        interface IsBackstagePasses
-        {
-            bool isYes();
-            void handleExpiredItemNotAgedBrie();
 
-            void updateQuality();
+            public void initializeBackstagePassesAndSoForUs()
+            {
+                itm.isBackstagePasses = itm.Name.Equals(BACKSTAGE_PASSES) ? new BackstagePasses(itm) as IsBackstagePasses
+                                                                          : new NotBackstagePasses(itm) as IsBackstagePasses;
+                itm.isBackstagePasses.initializeSulfuras();
+            }
         }
 
+        #endregion
+
+        #region BackstagePasses 
+        interface IsBackstagePasses
+        {
+            void initializeSulfuras();
+            void handleExpired();
+
+            void updateQuality();
+
+            void increaseQuality();
+        }
         class BackstagePasses : IsBackstagePasses
         {
             private Item itm;
             public BackstagePasses(Item _itm)
             {
                 itm = _itm;
-            }
-            public bool isYes()
-            {
-                return true;
-            }
-
-            public void handleExpiredItemNotAgedBrie()
+            }            
+            public void handleExpired()
             {
                 itm.Quality = 0;
             }
@@ -90,32 +86,74 @@
             {
                 itm.increaseQualityIncludingBackstagePasses();
             }
+            public void increaseQuality()
+            {
+                itm.increaseQualityIfFarFromExpiry();
+                itm.increaseQualityIfCloseToExpiry();
+            }            
+            public void initializeSulfuras()
+            {
+                itm.isSulfuras = new NotSulfuras(itm) as IsSulfuras;
+            }
         }
-
         class NotBackstagePasses : IsBackstagePasses
         {
             private Item itm;
-
             public NotBackstagePasses(Item _itm)
             {
                 itm = _itm;
             }
-            public bool isYes()
-            {
-                return false;
-            }
-
-            public void handleExpiredItemNotAgedBrie()
+            public void handleExpired()
             {
                 itm.decreaseQualityIfItemHasQuality();
             }
-
             public void updateQuality()
             {
                 itm.decreaseQualityIfItemHasQuality();
             }
+            public void increaseQuality()
+            {}
+
+            public void initializeSulfuras()
+            {
+                itm.isSulfuras = itm.Name.Equals(SULFURAS) ? new Sulfuras(itm) as IsSulfuras
+                                                               : new NotSulfuras(itm) as IsSulfuras;
+            }
         }
 
+        #endregion
+
+        interface IsSulfuras
+        {
+            void decreaseQuality();
+        }
+
+        class Sulfuras : IsSulfuras
+        {
+            private Item itm;
+
+            public Sulfuras(Item _itm)
+            {
+                itm = _itm;
+            }
+            public void decreaseQuality()
+            {}
+        }
+
+        class NotSulfuras : IsSulfuras
+        {
+            private Item itm;
+
+            public NotSulfuras(Item _itm)
+            {
+                itm = _itm;
+            }
+            
+            public void decreaseQuality()
+            {
+                itm.Quality--;
+            }
+        }
 
         public string Name { get; set; }
         public int SellIn { get; set; }
@@ -125,11 +163,11 @@
 
         private IsBackstagePasses isBackstagePasses;
 
-        private bool isSulfuras = false;
+        private IsSulfuras isSulfuras;
 
         private const string AGED_BRIE = "Aged Brie";
 
-        private const string BACKSTAGE_PASSES_TO_A_TAFKAL80ETC_CONCERT = "Backstage passes to a TAFKAL80ETC concert";
+        private const string BACKSTAGE_PASSES = "Backstage passes to a TAFKAL80ETC concert";
 
         private const string SULFURAS = "Sulfuras, Hand of Ragnaros";
 
@@ -146,27 +184,16 @@
 
         public Item()
         {
-            isAgedBrie = Name.Equals(AGED_BRIE) ? new AgedBrie(this) as IsAgedBrie : 
+            isAgedBrie = Name.Equals(AGED_BRIE) ? new AgedBrie(this) as IsAgedBrie :
                                                   new NotAgedBrie(this) as IsAgedBrie;
-
-            isBackstagePasses = this.Name.Equals(BACKSTAGE_PASSES_TO_A_TAFKAL80ETC_CONCERT) ?
-                                                  new BackstagePasses(this) as IsBackstagePasses :
-                                                  new NotBackstagePasses(this) as IsBackstagePasses;
-
-            isSulfuras = this.Name.Equals(SULFURAS);
-        }
-
-        public void increaseQuality()
-        {
-            if (this.Quality < MAX_QUALITY)
-                this.Quality++;
+            isAgedBrie.initializeBackstagePassesAndSoForUs();
         }
 
         public void increaseQualityIfNotMax()
         {
             if (this.Quality < MAX_QUALITY)
             {
-                this.increaseQuality();
+                this.Quality++;
             }
         }
 
@@ -186,30 +213,18 @@
             }
         }
 
-        public void increaseQualityOfBackstagePasses()
-        {
-            if (isBackstagePasses.isYes())
-            {
-                this.increaseQualityIfFarFromExpiry();
-                this.increaseQualityIfCloseToExpiry();
-            }
-        }
-
         public void increaseQualityIncludingBackstagePasses()
         {
             if (this.Quality < MAX_QUALITY)
             {
-                this.increaseQuality();
-                this.increaseQualityOfBackstagePasses();
+                this.Quality++;
+                isBackstagePasses.increaseQuality();
             }
         }
 
         public void decreaseQuality()
         {
-            if (!isSulfuras)
-            {
-                this.Quality--;
-            }
+            isSulfuras.decreaseQuality();
         }
 
         public void decreaseQualityIfItemHasQuality()
@@ -219,27 +234,6 @@
                 this.decreaseQuality();
             }
         }
-
-        private void updateQuality()
-        {
-            isAgedBrie.updateQuality();
-        }
-
-        private bool notBrieAndNotBackstagePasses()
-        {
-            return isAgedBrie.notBrieAndNotBackstagePasses();
-        }
-
-        public void handleExpiredItemNotAgedBrie()
-        {
-            isBackstagePasses.handleExpiredItemNotAgedBrie();
-        }
-
-        public void handleExpired()
-        {
-            isAgedBrie.handleExpired();
-        }
-
         public void handleIfExpired()
         {
             if (this.SellIn < 0)
@@ -248,19 +242,15 @@
             }
         }
 
-        public void updateSellIn()
+        private void updateSellIn()
         {
-            if (!isSulfuras)
-            {
-                this.SellIn--;
-            }
-
+            this.decreaseQuality();
             this.handleIfExpired();
         }
 
         public void update()
         {
-            this.updateQuality();
+            isAgedBrie.updateQuality();
             this.updateSellIn();
         }
     }
