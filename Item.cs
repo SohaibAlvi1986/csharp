@@ -1,8 +1,8 @@
 ﻿namespace csharp
 {  
-
     public class Item
     {
+        #region Item Interface
         interface Item_TMP
         {
             void handleExpired();
@@ -11,8 +11,10 @@
             void decreaseQuality();
         }
 
+        #endregion
+
         #region AgedBrie 
-        
+
         public class AgedBrie : Item_TMP
         {
             private Item itm;
@@ -137,9 +139,15 @@
 
         #endregion
 
+        #region Attributes
+
         public string Name { get; set; }
         public int SellIn { get; set; }
         public int Quality { get; set; }
+
+        #endregion
+
+        #region Constants/Variables
 
         private Item_TMP isAgedBrie;        
 
@@ -154,16 +162,20 @@
         private const int FAR_FROM_EXPIRY = 11;
 
         private const int CLOSED_TO_EXPIRY = 6;
+
+        #endregion
+
+        #region Methods
         public override string ToString()
         {
             return this.Name + ", " + this.SellIn + ", " + this.Quality;
         }
-        public Item()
+        private void SetItem()
         {
-            isAgedBrie = Name.Equals(AGED_BRIE) 
+            isAgedBrie = Name.Equals(AGED_BRIE)
                 ? new AgedBrie(this) as Item_TMP
-                : this.Name.Equals(BACKSTAGE_PASSES) 
-                ? new BackstagePasses(this) as Item_TMP                
+                : this.Name.Equals(BACKSTAGE_PASSES)
+                ? new BackstagePasses(this) as Item_TMP
                 : new NotBackstagePasses(this) as Item_TMP;
         }
         private void increaseQualityIfNotMax()
@@ -216,8 +228,11 @@
         }
         public void update()
         {
+            SetItem();
             isAgedBrie.updateQuality();
             this.updateSellIn();
         }
+
+        #endregion
     }
 }

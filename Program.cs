@@ -67,6 +67,8 @@ namespace csharp
                 }
             };
 
+
+
             var app = new GildedRose(Items);
 
 
